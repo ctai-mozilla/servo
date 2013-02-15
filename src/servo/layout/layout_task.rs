@@ -5,7 +5,7 @@ use content::content_task;
 use css::matching::MatchMethods;
 use css::select::new_css_select_ctx;
 use dom::event::{Event, ReflowEvent};
-use dom::node::{Node, LayoutData};
+use dom::node::{AbstractNode, LayoutData};
 use layout::aux::LayoutAuxMethods;
 use layout::box::RenderBox;
 use layout::box_builder::LayoutTreeBuilder;
@@ -42,7 +42,7 @@ use std::net::url::Url;
 pub type LayoutTask = SharedChan<Msg>;
 
 pub enum LayoutQuery {
-    ContentBox(Node)
+    ContentBox(AbstractNode)
 }
 
 pub type LayoutQueryResponse = Result<LayoutQueryResponse_, ()>;
@@ -77,7 +77,7 @@ impl Damage {
 }
 
 pub struct BuildData {
-    node: Node,
+    node: AbstractNode,
     url: Url,
     dom_event_chan: pipes::SharedChan<Event>,
     window_size: Size2D<uint>,

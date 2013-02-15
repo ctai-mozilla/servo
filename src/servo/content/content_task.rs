@@ -5,7 +5,7 @@ tasks.
 
 use dom::bindings::utils::rust_box;
 use dom::document::Document;
-use dom::node::{Node, NodeScope, define_bindings};
+use dom::node::define_bindings;
 use dom::event::{Event, ResizeEvent, ReflowEvent};
 use dom::window::Window;
 use layout::layout_task;
@@ -89,7 +89,6 @@ pub struct Content {
     event_port: pipes::Port<Event>,
     event_chan: pipes::SharedChan<Event>,
 
-    scope: NodeScope,
     jsrt: jsrt,
     cx: @Cx,
 
@@ -134,7 +133,6 @@ pub fn Content(layout_task: LayoutTask,
         event_port : move event_port,
         event_chan : move event_chan,
 
-        scope : NodeScope(),
         jsrt : jsrt,
         cx : cx,
 
@@ -183,8 +181,7 @@ impl Content {
             // Note: we can parse the next document in parallel
             // with any previous documents.
 
-            let result = html::hubbub_html_parser::parse_html(self.scope,
-                                                              copy url,
+            let result = html::hubbub_html_parser::parse_html(copy url,
                                                               self.resource_task.clone(),
                                                               self.image_cache_task.clone());
 
@@ -205,7 +202,7 @@ impl Content {
             let js_scripts = result.js_port.recv();
             debug!("js_scripts: %?", js_scripts);
 
-            let document = Document(root, self.scope);
+            let document = Document(root);
             let window   = Window(self.control_chan.clone());
 
             self.damage.add(MatchSelectorsDamage);
@@ -271,13 +268,9 @@ impl Content {
        Sends a ping to layout and waits for the response (i.e., it has finished any
        pending layout request messages).
     */
-    fn join_layout() {
-        assert self.scope.is_reader_forked() == self.layout_join_port.is_some();
-
-        if self.scope.is_reader_forked() {
-
+    fn join_layout(&self) {
+        if self.layout_join_port.is_some() {
             let join_port = replace(&mut self.layout_join_port, None);
-
             match join_port {
                 Some(ref join_port) => {
                     if !join_port.peek() {
@@ -288,8 +281,6 @@ impl Content {
                 }
                 None => fail!(~"reader forked but no join port?")
             }
-
-            self.scope.reader_joined();
         }
     }
 
@@ -320,11 +311,7 @@ impl Content {
             damage: replace(&mut self.damage, NoDamage),
         };
 
-        self.layout_task.send(BuildMsg(move data));
-
-        // Indicate that reader was forked so any further
-        // changes will be isolated.
-        self.scope.reader_forked();
+        self.layout_task.send(BuildMsg(data));
 
         debug!("content: layout forked");
     }
